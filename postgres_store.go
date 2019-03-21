@@ -38,6 +38,7 @@ func (p *postgresStore) Options(options Options) {
 		MaxAge:   options.MaxAge,
 		Secure:   options.Secure,
 		HttpOnly: options.HttpOnly,
+		SameSite: options.SameSite,
 	}
 }
 

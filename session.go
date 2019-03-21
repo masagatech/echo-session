@@ -31,12 +31,16 @@ type Options struct {
 	MaxAge   int
 	Secure   bool
 	HttpOnly bool
+	SameSite http.SameSite
 }
 
 // Wraps thinly gorilla-session methods.
 
 // Session stores the values and optional configuration for a session.
 type Session interface {
+	// GetID of the session
+	GetID() interface{}
+
 	// Get returns the session value associated to the given key.
 	Get(key interface{}) interface{}
 	// Set sets the session value associated to the given key.
@@ -81,6 +85,10 @@ type session struct {
 	writer  http.ResponseWriter
 }
 
+func (s *session) GetID() interface{} {
+	return s.Session().ID
+}
+
 func (s *session) Get(key interface{}) interface{} {
 	return s.Session().Values[key]
 }
@@ -118,18 +126,16 @@ func (s *session) Options(options Options) {
 		MaxAge:   options.MaxAge,
 		Secure:   options.Secure,
 		HttpOnly: options.HttpOnly,
+		SameSite: options.SameSite,
 	}
 }
 
 func (s *session) Save() error {
-	if s.Written() {
-		e := s.Session().Save(s.request, s.writer)
-		if e == nil {
-			s.written = false
-		}
-		return e
+	e := s.Session().Save(s.request, s.writer)
+	if e == nil {
+		s.written = false
 	}
-	return nil
+	return e
 }
 
 func (s *session) Session() *sessions.Session {
