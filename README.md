@@ -9,7 +9,7 @@ Middleware echo-session is a session support for [echo](https://github.com/labst
 
 ### Installation
 
-	go get github.com/ipfans/echo-session
+	go get github.com/piggyman007/echo-session
 
 ## Example
 
@@ -17,38 +17,68 @@ Middleware echo-session is a session support for [echo](https://github.com/labst
 package main
 
 import (
-	"github.com/ipfans/echo-session"
+	"net/http"
+
 	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
+	"github.com/piggyman007/echo-session"
 )
 
 func main() {
-	serv := echo.New()
-	serv.Use(middleware.Logger())
-	serv.Use(middleware.Recover())
-	store, err := session.NewRedisStore(32, "tcp", "localhost:6379", "", []byte("secret"))
-	if err != nil {
-		panic(err)
+	e := echo.New()
+	store, _ := session.NewRedisStore(32, "tcp", "localhost:6379", "", []byte("secret")) // set redis store
+	opts := session.Options{
+		MaxAge:   300,                  // sesstion timeout in seconds
+		Secure:   false,                // secure cookie flag
+		HttpOnly: true,                 // httponly flag
+		SameSite: http.SameSiteLaxMode, // samesite flag
 	}
-	serv.Use(session.Sessions("GSESSION", store))
-	serv.GET("/", func(ctx echo.Context) error {
-		session := session.Default(ctx)
-		var count int
-		v := session.Get("count")
-		if v == nil {
-			count = 0
-		} else {
-			count = v.(int)
-			count += 1
+	store.Options(opts)
+
+	e.Use(session.Sessions("EDSESSION", store)) // EDSESSION is the cookie name
+
+	// e.g., http://localhost:8082/login?username=user2&userId=2
+	e.GET("/login", func(c echo.Context) error {
+		username := c.QueryParam("username")
+		userId := c.QueryParam("userId")
+
+		if username != "" && userId != "" {
+			session := session.Default(c)
+			session.Set("username", username) // save session data
+			session.Set("userId", userId)     // save session data
+			session.Save()                    // save session
+			sessionId := session.GetID()      // get sessionId, need to call GetID() after session.Save()
+			return c.JSON(200, map[string]interface{}{
+				"msg":       "Login success",
+				"sessionId": sessionId,
+			})
 		}
-		session.Set("count", count)
-		session.Save()
-		ctx.JSON(200, map[string]interface{}{
-			"visit": count,
+
+		return c.JSON(401, map[string]interface{}{
+			"msg": "Unauthorized",
 		})
-		return nil
 	})
-	serv.Start(":8081")
+
+	// e.g., http://localhost:8082/profile
+	e.GET("/profile", func(c echo.Context) error {
+		session := session.Default(c)
+		if session.IsNew() {
+			return c.JSON(400, map[string]interface{}{
+				"msg": "Bad Request",
+			})
+		}
+
+		username := session.Get("username") // get session data
+		userId := session.Get("userId")     // get session data
+		session.Save()                      // reset sesstion TTL
+
+		return c.JSON(200, map[string]interface{}{
+			"username": username,
+			"userId":   userId,
+			"sessinId": session.GetID(),
+		})
+	})
+
+	e.Logger.Fatal(e.Start(":8082"))
 }
 ```
 
