@@ -39,8 +39,9 @@ type Options struct {
 // Session stores the values and optional configuration for a session.
 type Session interface {
 	// GetID of the session
-	GetID() interface{}
-
+	GetID() string
+	// IsNew session or not
+	IsNew() bool
 	// Get returns the session value associated to the given key.
 	Get(key interface{}) interface{}
 	// Set sets the session value associated to the given key.
@@ -85,8 +86,12 @@ type session struct {
 	writer  http.ResponseWriter
 }
 
-func (s *session) GetID() interface{} {
+func (s *session) GetID() string {
 	return s.Session().ID
+}
+
+func (s *session) IsNew() bool {
+	return s.Session().IsNew
 }
 
 func (s *session) Get(key interface{}) interface{} {
